@@ -13,7 +13,6 @@ from poetry.repositories import Pool
 from poetry.repositories import Repository
 from poetry.repositories.installed_repository import InstalledRepository
 from poetry.repositories.lockfile_repository import LockfileRepository
-from poetry.repositories.resolved_repository import ResolvedRepository
 from poetry.utils.extras import get_extra_package_names
 from poetry.utils.helpers import canonicalize_name
 from poetry.utils.helpers import pluralize
@@ -292,7 +291,7 @@ class Installer:
 
         # Making a new repo containing the packages
         # newly resolved and the ones from the current lock file
-        repo = ResolvedRepository()
+        repo = Repository()
         for package in lockfile_repo.packages + locked_repository.packages:
             if not package.is_direct_origin() and not repo.has_package(package):
                 repo.add_package(package)
