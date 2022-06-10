@@ -7,6 +7,9 @@ from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from poetry.core.packages.dependency import Dependency
+from poetry.core.semver.helpers import parse_constraint
+from poetry.core.semver.version_constraint import VersionConstraint
+from poetry.core.semver.version_range import VersionRange
 
 from poetry.mixology.failure import SolveFailure
 from poetry.mixology.incompatibility import Incompatibility
@@ -48,6 +51,24 @@ class DependencyCache:
 
         self.search_for = functools.lru_cache(maxsize=128)(self._search_for)
 
+    def allow_prereleases(self, dependency: Dependency) -> bool:
+        constraint = dependency.constraint
+        if constraint is None:
+            constraint = "*"
+
+        if not isinstance(constraint, VersionConstraint):
+            constraint = parse_constraint(constraint)
+
+        if isinstance(constraint, VersionRange) and (
+            constraint.max is not None
+            and constraint.max.is_unstable()
+            or constraint.min is not None
+            and constraint.min.is_unstable()
+        ):
+            return True
+
+        return dependency.allows_prereleases()
+
     def _search_for(self, dependency: Dependency) -> list[DependencyPackage]:
         key = (
             dependency.complete_name,
@@ -64,6 +85,15 @@ class DependencyCache:
             packages = [p for p in packages if dependency.constraint.allows(p.version)]
 
         self.cache[key] = packages
+
+        if self.allow_prereleases(dependency):
+            return packages
+
+        release_packages = [
+            package for package in packages if not package.is_prerelease()
+        ]
+        if release_packages:
+            return release_packages
 
         return packages
 

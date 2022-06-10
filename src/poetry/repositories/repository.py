@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from poetry.core.semver.helpers import parse_constraint
 from poetry.core.semver.version_constraint import VersionConstraint
-from poetry.core.semver.version_range import VersionRange
 
 from poetry.repositories.exceptions import PackageNotFound
 
@@ -105,16 +104,7 @@ class Repository:
         if not isinstance(constraint, VersionConstraint):
             constraint = parse_constraint(constraint)
 
-        allow_prereleases = dependency.allows_prereleases()
-        if isinstance(constraint, VersionRange) and (
-            constraint.max is not None
-            and constraint.max.is_unstable()
-            or constraint.min is not None
-            and constraint.min.is_unstable()
-        ):
-            allow_prereleases = True
-
-        return constraint, allow_prereleases
+        return constraint, True
 
     def _log(self, msg: str, level: str = "info") -> None:
         logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
