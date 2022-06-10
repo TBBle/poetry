@@ -41,34 +41,11 @@ class DependencyCache:
 
     def __init__(self, provider: Provider) -> None:
         self.provider = provider
-        self.cache: dict[
-            tuple[str, str | None, str | None, str | None, str | None],
-            list[DependencyPackage],
-        ] = {}
 
         self.search_for = functools.lru_cache(maxsize=128)(self._search_for)
 
     def _search_for(self, dependency: Dependency) -> list[DependencyPackage]:
-        key = (
-            dependency.complete_name,
-            dependency.source_type,
-            dependency.source_url,
-            dependency.source_reference,
-            dependency.source_subdirectory,
-        )
-
-        packages = self.cache.get(key)
-        if packages is None:
-            packages = self.provider.search_for(dependency)
-        else:
-            packages = [p for p in packages if dependency.constraint.allows(p.version)]
-
-        self.cache[key] = packages
-
-        return packages
-
-    def clear(self) -> None:
-        self.cache.clear()
+        return self.provider.search_for(dependency)
 
 
 class VersionSolver:
@@ -310,7 +287,6 @@ class VersionSolver:
             ):
                 self._solution.backtrack(previous_satisfier_level)
                 self._contradicted_incompatibilities.clear()
-                self._dependency_cache.clear()
                 if new_incompatibility:
                     self._add_incompatibility(incompatibility)
 

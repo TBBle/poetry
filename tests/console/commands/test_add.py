@@ -9,6 +9,7 @@ import pytest
 
 from poetry.core.semver.version import Version
 
+from poetry.factory import Factory
 from poetry.repositories.legacy_repository import LegacyRepository
 from tests.helpers import get_dependency
 from tests.helpers import get_package
@@ -937,6 +938,108 @@ Package operations: 1 install, 0 updates, 0 removals
 
     assert "pyyaml" in content["dependencies"]
     assert content["dependencies"]["pyyaml"] == "^3.13"
+
+
+def test_add_can_select_prereleases_subdependencies_when_necessary(
+    app: PoetryTestApplication, repo: TestRepository, tester: CommandTester
+):
+    package_distro = get_package("opentelemetry-distro", "0.31b0")
+    package_distro.add_dependency(
+        Factory.create_dependency("opentelemetry-sdk", "1.12.0rc1")
+    )
+    package_distro.add_dependency(
+        Factory.create_dependency("opentelemetry-api", ">=1.3,<2.0")
+    )
+
+    package_sdk = get_package("opentelemetry-sdk", "1.12.0rc1")
+    package_sdk.add_dependency(
+        Factory.create_dependency("opentelemetry-api", "1.12.0rc1")
+    )
+    package_sdk_stable = get_package("opentelemetry-sdk", "1.11.1")
+
+    package_api = get_package("opentelemetry-api", "1.12.0rc1")
+    package_api_stable = get_package("opentelemetry-api", "1.11.1")
+
+    repo.add_package(package_distro)
+    repo.add_package(package_sdk_stable)
+    repo.add_package(package_sdk)
+    repo.add_package(package_api_stable)
+    repo.add_package(package_api)
+
+    tester.execute("opentelemetry-distro")
+
+    expected = """\
+Using version ^0.31b0 for opentelemetry-distro
+
+Updating dependencies
+Resolving dependencies...
+
+Writing lock file
+
+Package operations: 3 installs, 0 updates, 0 removals
+
+  • Installing opentelemetry-api (1.12.0rc1)
+  • Installing opentelemetry-sdk (1.12.0rc1)
+  • Installing opentelemetry-distro (0.31b0)
+"""
+
+    assert tester.io.fetch_output() == expected
+    assert tester.command.installer.executor.installations_count == 3
+
+    content = app.poetry.file.read()["tool"]["poetry"]
+
+    assert "opentelemetry-distro" in content["dependencies"]
+    assert content["dependencies"]["opentelemetry-distro"] == "^0.31b0"
+
+
+def test_add_can_select_prereleases_subdependencies_when_really_necessary(
+    app: PoetryTestApplication, repo: TestRepository, tester: CommandTester
+):
+    package_distro = get_package("opentelemetry-distro", "0.31b0")
+    package_distro.add_dependency(
+        Factory.create_dependency("opentelemetry-sdk", "1.12.0rc1")
+    )
+    package_distro.add_dependency(
+        Factory.create_dependency("opentelemetry-api", ">=1.3,<2.0")
+    )
+
+    package_sdk = get_package("opentelemetry-sdk", "1.12.0rc1")
+    package_sdk.add_dependency(
+        Factory.create_dependency("opentelemetry-api", "1.12.0rc1")
+    )
+    package_sdk_stable = get_package("opentelemetry-sdk", "1.11.1")
+
+    package_api = get_package("opentelemetry-api", "1.12.0rc1")
+
+    repo.add_package(package_distro)
+    repo.add_package(package_sdk_stable)
+    repo.add_package(package_sdk)
+    repo.add_package(package_api)
+
+    tester.execute("opentelemetry-distro")
+
+    expected = """\
+Using version ^0.31b0 for opentelemetry-distro
+
+Updating dependencies
+Resolving dependencies...
+
+Writing lock file
+
+Package operations: 3 installs, 0 updates, 0 removals
+
+  • Installing opentelemetry-api (1.12.0rc1)
+  • Installing opentelemetry-sdk (1.12.0rc1)
+  • Installing opentelemetry-distro (0.31b0)
+"""
+
+    assert tester.io.fetch_output() == expected
+    assert tester.command.installer.executor.installations_count == 3
+
+    content = app.poetry.file.read()["tool"]["poetry"]
+
+    assert "opentelemetry-distro" in content["dependencies"]
+    assert content["dependencies"]["opentelemetry-distro"] == "^0.31b0"
 
 
 def test_add_should_skip_when_adding_existing_package_with_no_constraint(
